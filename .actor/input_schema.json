@@ -1,0 +1,82 @@
+{
+    "$schema": "https://apify.com/schemas/v1/input.ide.json",
+    "title": "Global Patent & IP Enforcement Actions Monitor Configuration",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "sources": {
+            "title": "Sources to extract",
+            "type": "array",
+            "description": "uspto_ptab = real USPTO PTAB Trial proceedings (IPR/PGR/CBM/DER), newest-filed-first, via the USPTO Open Data Portal. epo_opposition = EPO Open Patent Services opposition-family legal-status watch for a caller-supplied list of EP publication numbers (epWatchlist). Both require the matching credential fields below (BYOK) -- see this actor's README/src/http.ts for the live-verified access requirements of each.",
+            "editor": "select",
+            "items": {
+                "type": "string",
+                "enum": ["uspto_ptab", "epo_opposition"],
+                "enumTitles": ["USPTO PTAB Trials (IPR/PGR/CBM/DER)", "EPO OPS Opposition Watch (watchlist-driven)"]
+            },
+            "default": ["uspto_ptab"],
+            "minItems": 1
+        },
+        "usptoOdpApiKey": {
+            "title": "USPTO Open Data Portal API key",
+            "type": "string",
+            "description": "Required when sources includes uspto_ptab. Bring-your-own-key: obtain a free key from a USPTO.gov account (MFA required) at https://data.uspto.gov/myodp -- this actor never attempts to create that account on your behalf. Never logged or persisted beyond this run.",
+            "editor": "textfield",
+            "isSecret": true
+        },
+        "epoOpsConsumerKey": {
+            "title": "EPO OPS Consumer Key",
+            "type": "string",
+            "description": "Required when sources includes epo_opposition. From a free developers.epo.org account + registered App (OAuth2 client-credentials flow). Never logged or persisted beyond this run.",
+            "editor": "textfield",
+            "isSecret": true
+        },
+        "epoOpsConsumerSecret": {
+            "title": "EPO OPS Consumer Secret",
+            "type": "string",
+            "description": "Paired with epoOpsConsumerKey. Never logged or persisted beyond this run.",
+            "editor": "textfield",
+            "isSecret": true
+        },
+        "epWatchlist": {
+            "title": "EP publication numbers to watch (OPS epodoc format)",
+            "type": "array",
+            "description": "Required when sources includes epo_opposition -- EPO OPS has no bulk 'recent oppositions' search, only a per-publication-number legal-status lookup, so this actor is watchlist-driven for that source. Example: \"EP3000000\".",
+            "editor": "stringList",
+            "default": []
+        },
+        "trialTypeCodes": {
+            "title": "PTAB trial types to include",
+            "type": "array",
+            "description": "Filters uspto_ptab results by trialMetaData.trialTypeCode. Leave empty for all four: Inter Partes Review (IPR), Post-Grant Review (PGR), Covered Business Method (CBM), Derivation (DER).",
+            "editor": "select",
+            "items": {
+                "type": "string",
+                "enum": ["IPR", "PGR", "CBM", "DER"],
+                "enumTitles": ["Inter Partes Review (IPR)", "Post-Grant Review (PGR)", "Covered Business Method (CBM)", "Derivation (DER)"]
+            },
+            "default": []
+        },
+        "dateRange": {
+            "title": "Filter PTAB proceedings by recency (petition filing date)",
+            "type": "string",
+            "description": "Optionally restricts uspto_ptab results to proceedings whose petitionFilingDate falls within this window (applied server-side as an ODP rangeFilter). Does not affect epo_opposition, which is watchlist-driven.",
+            "editor": "select",
+            "enum": ["24h", "7d", "30d", "90d"],
+            "enumTitles": ["Last 24 hours", "Last 7 days", "Last 30 days", "Last 90 days"]
+        },
+        "maxItemsPerSource": {
+            "title": "Max records per source",
+            "type": "integer",
+            "description": "Hard cap on how many records to return per selected source this run (applied independently to uspto_ptab and epo_opposition).",
+            "default": 100,
+            "minimum": 1
+        },
+        "onlyNew": {
+            "title": "Delta mode - only new or changed records since last run",
+            "type": "boolean",
+            "description": "When enabled, persists seen record ids and a status fingerprint between runs (in this actor's own key-value store) and skips records whose status is unchanged since the prior run. A first-seen record is emitted as event_type SANCTION; a previously-seen record whose status/decision fields changed is emitted as UPDATED; a uspto_ptab record whose terminationDate newly became set since it was last seen is emitted as the more specific TERMINATED instead. Recommended for recurring monitoring.",
+            "default": false
+        }
+    }
+}

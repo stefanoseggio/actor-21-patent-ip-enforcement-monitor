@@ -1,0 +1,21 @@
+{
+    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+    "actorSpecification": 1,
+    "name": "actor-21-patent-ip-enforcement-monitor",
+    "title": "Global Patent & IP Enforcement Actions Monitor",
+    "description": "Extracts USPTO PTAB patent-dispute proceedings (IPR/PGR/CBM/Derivation), plus an optional EPO Open Patent Services opposition-watch module. Both sources are BYOK via free registration. PatentsView (down) and WIPO (paid-only) are out of scope - see README.md.",
+    "version": "1.1",
+    "buildTag": "latest",
+    "minMemoryMbytes": 256,
+    "maxMemoryMbytes": 512,
+    "meta": {
+        "templateId": "ts-crawlee-cheerio",
+        "generatedBy": "Claude Code with Claude Sonnet 5"
+    },
+    "inputSchema": "./input_schema.json",
+    "outputSchema": "./output_schema.json",
+    "storages": {
+        "dataset": "./dataset_schema.json"
+    },
+    "changelog": "../CHANGELOG.md"
+}
