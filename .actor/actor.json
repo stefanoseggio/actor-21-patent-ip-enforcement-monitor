@@ -1,21 +1,24 @@
 {
-    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
-    "actorSpecification": 1,
-    "name": "actor-21-patent-ip-enforcement-monitor",
-    "title": "Global Patent & IP Enforcement Actions Monitor",
-    "description": "Extracts USPTO PTAB patent-dispute proceedings (IPR/PGR/CBM/Derivation), plus an optional EPO Open Patent Services opposition-watch module. Both sources are BYOK via free registration. PatentsView (down) and WIPO (paid-only) are out of scope - see README.md.",
-    "version": "1.1",
-    "buildTag": "latest",
-    "minMemoryMbytes": 256,
-    "maxMemoryMbytes": 512,
-    "meta": {
-        "templateId": "ts-crawlee-cheerio",
-        "generatedBy": "Claude Code with Claude Sonnet 5"
-    },
-    "inputSchema": "./input_schema.json",
-    "outputSchema": "./output_schema.json",
-    "storages": {
-        "dataset": "./dataset_schema.json"
-    },
-    "changelog": "../CHANGELOG.md"
+  "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+  "actorSpecification": 1,
+  "name": "actor-21-patent-ip-enforcement-monitor",
+  "title": "USPTO PTAB + EPO Opposition - Patent Dispute Delta API",
+  "description": "Tracks USPTO PTAB patent-dispute proceedings (IPR/PGR/CBM/Derivation), plus an optional EPO opposition-watch module for a caller-supplied EP watchlist. Both sources are BYOK via free registration; delta mode flags new, updated, and concluded proceedings. PatentsView/WIPO out of scope.",
+  "version": "1.1",
+  "buildTag": "latest",
+  "minMemoryMbytes": 256,
+  "maxMemoryMbytes": 512,
+  "meta": {
+    "templateId": "ts-crawlee-cheerio",
+    "generatedBy": "Claude Code with Claude Sonnet 5"
+  },
+  "inputSchema": "./input_schema.json",
+  "outputSchema": "./output_schema.json",
+  "storages": {
+    "dataset": "./dataset_schema.json"
+  },
+  "changelog": "../CHANGELOG.md",
+  "categories": [
+    "BUSINESS"
+  ]
 }

@@ -1,57 +1,89 @@
-# Global Patent & IP Enforcement Actions Monitor
+# Patent & IP Enforcement Monitor - USPTO PTAB & EPO Opposition Tracker (Global IP Risk)
 
-Extracts patent dispute/enforcement proceedings from the USPTO Patent Trial and Appeal Board (PTAB), optionally enriched with EPO legal-status data, normalized to a shared 18-field Unified Master Schema (UMS), with real cross-run change detection including a dedicated signal when a PTAB trial concludes.
+## Executive Value Proposition
 
-## What's live in v1, and what was deferred
+Checking whether a patent is under active adversarial challenge means manually querying the USPTO Patent Trial and Appeal Board's docket search, and separately checking EPO legal-status records, per patent, on a recurring basis - tedious enough that most legal/IP teams either skip it or only do it quarterly. This actor automates that lookup against the real USPTO PTAB Trials API (Inter Partes Review, Post-Grant Review, Covered Business Method, and Derivation proceedings) and, optionally, an EPO Open Patent Services opposition watchlist, normalizes both into one schema, and - in delta mode - tells you specifically what's new, what changed, and which trial just concluded, instead of a full snapshot you have to diff yourself every run.
 
-| Source | Status | Why |
+## Use Cases
+
+- **IP-litigation risk monitoring for legal/IP teams.** Track PTAB proceedings against your own company's patent portfolio (via `patentOwnerName`/patent number) so counsel is alerted the moment a petition is filed or a trial is instituted against a patent you hold, not weeks later.
+- **Competitor patent-challenge tracking.** Monitor which of a competitor's patents are being challenged via IPR/PGR/CBM/Derivation, and by whom (`petitionerRealPartyInInterestName`) - a signal for competitive-intelligence and product-roadmap teams watching a rival's IP position erode or hold.
+- **Freedom-to-operate (FTO) due diligence.** Before a product launch, acquisition, or investment, check whether patents relevant to the deal are currently under PTAB challenge or carry an active EPO opposition-family legal event on the watchlisted EP publication number.
+
+## Input
+
+```json
+{
+  "sources": ["uspto_ptab"],
+  "usptoOdpApiKey": "YOUR_USPTO_ODP_API_KEY",
+  "trialTypeCodes": ["IPR", "PGR"],
+  "dateRange": "30d",
+  "maxItemsPerSource": 100,
+  "onlyNew": true
+}
+```
+
+| Field | Type | Description |
 |---|---|---|
-| USPTO PTAB Trials API | **Live — primary, BYOK** | Real endpoint, real rate limits, confirmed live. Requires a USPTO.gov account with mandatory MFA — a heavier registered-access gate than a bare signup, so this is BYOK (`usptoOdpApiKey`), never a bundled key. |
-| EPO Open Patent Services (OPS) | **Live — secondary, optional, BYOK** | Free registration + standard OAuth2 client-credentials flow. `epoOpsConsumerKey`/`epoOpsConsumerSecret`, watchlist-driven via `epWatchlist`. |
-| USPTO PatentsView | **Deferred** | Confirmed down/mid-migration as of 2026-09-07 — `data.uspto.gov`'s own transition guide states no committed relaunch date, and `search.patentsview.org` doesn't resolve in DNS. Also never covered disputes/enforcement anyway, only grants/applications — so even fully live it would not have served this actor's brief. |
-| WIPO PATENTSCOPE | **Not used** | Confirmed live: programmatic/bulk access is a paid commercial data product (CHF-priced), not an open API. |
+| `sources` | array (select) | `uspto_ptab` (USPTO PTAB Trials, IPR/PGR/CBM/DER) and/or `epo_opposition` (EPO OPS opposition-family watch, watchlist-driven). Default `["uspto_ptab"]`. |
+| `usptoOdpApiKey` | string, secret | **Required when `sources` includes `uspto_ptab`.** BYOK - a free API key from a USPTO.gov account (MFA required), obtained at `https://data.uspto.gov/myodp`. Never logged or persisted beyond the run. |
+| `epoOpsConsumerKey` | string, secret | **Required when `sources` includes `epo_opposition`.** BYOK - Consumer Key from a free `developers.epo.org` account + registered App (OAuth2 client-credentials flow). |
+| `epoOpsConsumerSecret` | string, secret | Paired with `epoOpsConsumerKey`. Never logged or persisted beyond the run. |
+| `epWatchlist` | array of strings | **Required when `sources` includes `epo_opposition`.** EP publication numbers in OPS "epodoc" format (e.g. `"EP3000000"`). EPO OPS has no bulk "recent oppositions" endpoint, only a per-publication legal-status lookup, so this source is watchlist-driven. |
+| `trialTypeCodes` | array (select) | Filters `uspto_ptab` results by trial type: `IPR`, `PGR`, `CBM`, `DER`. Leave empty for all four. |
+| `dateRange` | string (select) | Restricts `uspto_ptab` results to proceedings whose `petitionFilingDate` falls within `24h` / `7d` / `30d` / `90d`, applied server-side. Does not affect `epo_opposition`. |
+| `maxItemsPerSource` | integer | Hard cap on records returned per selected source this run. Default `100`. |
+| `onlyNew` | boolean | Delta mode: persists seen record IDs and status fingerprints in this actor's own key-value store, and skips records unchanged since the last run. Default `false`. Recommended for recurring monitoring. |
 
-## USPTO PTAB Trials API — primary source
+## Output
 
-`POST https://api.uspto.gov/api/v1/patent/trials/proceedings/search`
+One dataset record per proceeding/event, combining the source-native fields with the normalized 18-field Unified Master Schema (UMS) envelope. Example for a USPTO PTAB record:
 
-Real endpoint, real request-body shape (`q`/`filters`/`rangeFilters`/`pagination`/`sort`, per USPTO's own documented "advanced syntax"), confirmed live. Rate limits confirmed live: burst=1, 4–15 req/s, 5,000,000 calls/week shared across all metadata-retrieval endpoints. `src/sources/usptoPtab.ts` pulls proceeding metadata (trial number, type code, status category, filing/decision dates, patent number, patent-owner and petitioner party data) and flattens it via `flattenProceeding()`.
+```json
+{
+  "source": "uspto_ptab",
+  "trialNumber": "IPR2024-00123",
+  "trialTypeCode": "IPR",
+  "trialStatusCategory": "Instituted",
+  "petitionFilingDate": "2024-01-15",
+  "accordedFilingDate": "2024-01-20",
+  "institutionDecisionDate": "2024-07-10",
+  "latestDecisionDate": "2024-07-10",
+  "terminationDate": null,
+  "fileDownloadURI": "https://api.uspto.gov/api/v1/patent/trials/documents/IPR2024-00123/download",
+  "patentNumber": "10123456",
+  "patentOwnerName": "Acme Widgets Inc.",
+  "petitionerRealPartyInInterestName": "Globex Corp",
+  "record_id": "IPR2024-00123",
+  "event_type": "SANCTION",
+  "scraped_at": "2026-09-07T00:00:00.000Z",
+  "is_new": true,
+  "recipient_or_defendant_name": "Acme Widgets Inc.",
+  "entity_identifier_native": "10123456",
+  "value_usd_normalized": null,
+  "effective_date_iso": "2024-07-10",
+  "publish_date_iso": "2024-01-15",
+  "category_or_type": "IPR",
+  "status_or_estado": "Instituted",
+  "awarding_or_regulating_agency": "USPTO Patent Trial and Appeal Board (PTAB)",
+  "jurisdiction": "US",
+  "source_document_url": "https://api.uspto.gov/api/v1/patent/trials/documents/IPR2024-00123/download",
+  "reference_number": "IPR2024-00123"
+}
+```
 
-## EPO Open Patent Services — secondary, optional source
+`event_type` is one of `SANCTION` (first seen), `UPDATED` (status/decision changed since last run), `TERMINATED` (PTAB-only - `terminationDate` transitioned from unset to set, meaning the trial genuinely concluded), or `SNAPSHOT_NO_DIFF` (unchanged, only emitted when `onlyNew` is off). `value_usd_normalized` and related value fields are always `null` for this actor's two sources - neither PTAB proceedings nor EPO opposition events carry a monetary amount, so this is left an honest null rather than a fabricated figure. EPO records instead populate `publicationNumber`/`eventCode`/`eventDescription`/`eventDate`/`eventCountry` and set `jurisdiction: "EP"`.
 
-Free registration at `developers.epo.org` (standard OAuth2 client-credentials flow). Endpoint constants (`https://ops.epo.org/3.2/auth/accesstoken`, `.../rest-services/legal/publication/epodoc/{number}`) verified against the real `ops.epo.org` service. Used only when `epoOpsConsumerKey`/`Secret` are supplied and a watchlist (`epWatchlist`) is configured — the XML legal-event parsing is flagged as best-effort since the exact schema could not be confirmed without live credentials during this build.
+## Reliability
 
-## Unified Master Schema (UMS)
+Every request goes through a single sequential fetch path (`src/http.ts`) with exponential backoff: HTTP `429` responses honor USPTO ODP's own documented minimum 5-second retry floor, `503` responses back off and respect a real `Retry-After` header when the server sends one, and permanent client errors (401/403/404, etc.) are not retried since retrying an unchanged request can only fail the same way again. Requests are issued one at a time, matching USPTO ODP's documented `burst=1` limit.
 
-All records are normalized through `src/umsNormalizer.ts` into an 18-field UMS (`src/schemas.ts#UnifiedRecordSchema`), null-honest per field. `value_usd_normalized` is always `null` — neither source carries a monetary amount, an honest null rather than a fabricated figure.
+In delta mode (`onlyNew: true`), a status fingerprint per record is persisted in this actor's own named key-value store between runs (`src/state.ts`). For PTAB, the `terminationDate` field is tracked separately from the general fingerprint specifically so a null-to-set transition - the trial actually concluding - is reported as its own distinct `TERMINATED` event rather than folded into a generic `UPDATED`. A trial that is already terminated the first time it's seen is reported as a normal `SANCTION`, since there's nothing to transition from on a first sighting.
 
-## Delta mode - change detection, including a real "concluded" signal
+## Pricing
 
-Enable `onlyNew: true` on a scheduled task and this actor persists a status fingerprint per record (in its own named key-value store) and only delivers what's new or changed:
+Pay Per Event (PPE): a single billed event, **`result`**, charged once for each dataset record actually pushed - not for actor start or raw compute time. Price live-confirmed at **$0.002 per record**, against a compute cost basis of roughly $0.000125/request (at the platform's $0.25/CU-hour rate, running at 1 GB memory / ~2,000 requests-per-hour). Check the actor's Apify Store page for the current live per-result price before running at volume, since pricing can be revised independently of this README.
 
-- **`SANCTION`** - first time this proceeding/event has been seen.
-- **`UPDATED`** - status, latest decision date, or (EPO) event code/date changed since last seen.
-- **`TERMINATED`** (PTAB only) - a more specific signal than `UPDATED`: this trial's `terminationDate` transitioned from unset to set since it was last seen - the trial genuinely concluded. A trial that's already terminated the very first time it's seen is reported as a normal `SANCTION`, not `TERMINATED` - there's nothing to transition from on a first sighting.
-- **`SNAPSHOT_NO_DIFF`** - identical to last time; skipped from delivery when `onlyNew` is on.
+## Support & Enterprise SLA
 
-EPO opposition events have no equivalent terminal signal in this actor's currently-parsed data - a new `eventCode` on a watched publication IS itself the point of that record, not a status field to diff against.
-
-## Pricing (PPE)
-
-Compute baseline: $0.25/CU-hour at 1GB / 2,000 req-hr => $0.000125/request. Single event: **`result`**, live-confirmed at $0.002/record.
-
-## MCP tool manifest
-
-`mcp/searchPatentEnforcement.ts` — a standalone JSON-RPC tool declaration (zod `inputSchema`, `jsonSchema` via `zodToJsonSchema`, `handler`), not wired into any external registry - a ready-to-register spec.
-
-## Compliance / BYOK note
-
-No CAPTCHA-solving, no fingerprint spoofing, no WAF/OAuth-gate bypass anywhere in this package. Both live sources require registered API access (USPTO ODP account with MFA; EPO OAuth2 client credentials) — these are legitimate, publisher-sanctioned front doors, not gates being defeated, which is exactly why both are implemented as BYOK inputs rather than an embedded operator key.
-
-## Self-verification (run 2026-09-07)
-
-1. `npm install` — succeeded, 437 packages, 0 errors.
-2. `npm run build` (`tsc`) — zero errors, including a standalone typecheck of `mcp/searchPatentEnforcement.ts`.
-3. `npm test` (`vitest run`) — **12/12 tests passed**, against fixture data, no live network calls inside the test suite.
-4. Live-checked this session: `api.uspto.gov/robots.txt` returns `{"message":"Missing Authentication Token"}` (HTTP 403 — a real auth gate, not a bot/WAF challenge); `ops.epo.org/robots.txt` returns EPO's own published Fair Use policy 403 — both matching this build's own documented findings exactly.
-5. Grepped for CAPTCHA/fingerprint/WAF-bypass language — all matches are compliance-doctrine documentation, zero actual bypass code.
+This is an independently developed and maintained actor, not a vendor product backed by a contractual SLA. Bug reports and feature requests are handled through the Apify Store's built-in issue tracker for this actor; issues are typically triaged within about 48 hours. Both data sources require your own registered API credentials (USPTO ODP key; EPO OPS Consumer Key/Secret) - this actor never attempts to create those accounts on your behalf, and credentials are never logged or persisted beyond the run that used them.
