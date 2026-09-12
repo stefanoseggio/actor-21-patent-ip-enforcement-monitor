@@ -1,3 +1,10 @@
+[![Built for Apify](https://img.shields.io/badge/Built%20for-Apify-00C0A3?logo=apify&logoColor=white)](https://apify.com)
+[![Pay Per Event](https://img.shields.io/badge/Pay%20Per%20Event-%240.002%2Fresult-blue)](https://apify.com/stefano_seggio/actor-21-patent-ip-enforcement-monitor)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](./LICENSE)
+
+### [▶ Run on Apify](https://apify.com/stefano_seggio/actor-21-patent-ip-enforcement-monitor)
+
 # Patent & IP Enforcement Monitor - USPTO PTAB & EPO Opposition Tracker (Global IP Risk)
 
 ## Executive Value Proposition
@@ -9,6 +16,21 @@ Checking whether a patent is under active adversarial challenge means manually q
 - **IP-litigation risk monitoring for legal/IP teams.** Track PTAB proceedings against your own company's patent portfolio (via `patentOwnerName`/patent number) so counsel is alerted the moment a petition is filed or a trial is instituted against a patent you hold, not weeks later.
 - **Competitor patent-challenge tracking.** Monitor which of a competitor's patents are being challenged via IPR/PGR/CBM/Derivation, and by whom (`petitionerRealPartyInInterestName`) - a signal for competitive-intelligence and product-roadmap teams watching a rival's IP position erode or hold.
 - **Freedom-to-operate (FTO) due diligence.** Before a product launch, acquisition, or investment, check whether patents relevant to the deal are currently under PTAB challenge or carry an active EPO opposition-family legal event on the watchlisted EP publication number.
+
+## Quick start
+
+```bash
+apify call stefano_seggio/actor-21-patent-ip-enforcement-monitor --input '{
+  "sources": ["uspto_ptab"],
+  "usptoOdpApiKey": "YOUR_USPTO_ODP_API_KEY",
+  "trialTypeCodes": ["IPR", "PGR"],
+  "dateRange": "30d",
+  "maxItemsPerSource": 100,
+  "onlyNew": true
+}'
+```
+
+Requires a free USPTO Open Data Portal API key (`https://data.uspto.gov/myodp`) for `uspto_ptab`, and/or a free EPO OPS Consumer Key/Secret (`developers.epo.org`) for `epo_opposition` - see [Input](#input) below. Both are bring-your-own-key; this actor never creates those accounts on your behalf.
 
 ## Input
 
@@ -80,10 +102,20 @@ Every request goes through a single sequential fetch path (`src/http.ts`) with e
 
 In delta mode (`onlyNew: true`), a status fingerprint per record is persisted in this actor's own named key-value store between runs (`src/state.ts`). For PTAB, the `terminationDate` field is tracked separately from the general fingerprint specifically so a null-to-set transition - the trial actually concluding - is reported as its own distinct `TERMINATED` event rather than folded into a generic `UPDATED`. A trial that is already terminated the first time it's seen is reported as a normal `SANCTION`, since there's nothing to transition from on a first sighting.
 
-## Pricing
+## Pricing (Pay-Per-Event)
 
-Pay Per Event (PPE): a single billed event, **`result`**, charged once for each dataset record actually pushed - not for actor start or raw compute time. Price live-confirmed at **$0.002 per record**, against a compute cost basis of roughly $0.000125/request (at the platform's $0.25/CU-hour rate, running at 1 GB memory / ~2,000 requests-per-hour). Check the actor's Apify Store page for the current live per-result price before running at volume, since pricing can be revised independently of this README.
+This actor bills via Apify's Pay-Per-Event (PPE) model - one event type, charged only when a dataset record is actually pushed:
+
+| Event | Name | Price |
+|---|---|---|
+| `result` | Patent Enforcement Proceeding | **$0.002** per event |
+
+There is no charge for actor start, compute time, or a run that finds nothing new. Compute cost basis is roughly $0.000125/request (at the platform's $0.25/CU-hour rate, running at 1 GB memory / ~2,000 requests-per-hour). Check the [Actor's Apify Store page](https://apify.com/stefano_seggio/actor-21-patent-ip-enforcement-monitor) for the current live per-result price before running at volume, since pricing can be revised independently of this README.
 
 ## Support & Enterprise SLA
 
 This is an independently developed and maintained actor, not a vendor product backed by a contractual SLA. Bug reports and feature requests are handled through the Apify Store's built-in issue tracker for this actor; issues are typically triaged within about 48 hours. Both data sources require your own registered API credentials (USPTO ODP key; EPO OPS Consumer Key/Secret) - this actor never attempts to create those accounts on your behalf, and credentials are never logged or persisted beyond the run that used them.
+
+---
+
+This Actor is part of **Delta Registry** — pay-per-event regulatory & compliance data infrastructure built and operated by Stefano Seggio. For professional inquiries or enterprise licensing, connect on [LinkedIn](https://www.linkedin.com/in/stefanoseggio-deltaregistry); for the rest of the fleet, see [github.com/stefanoseggio](https://github.com/stefanoseggio).

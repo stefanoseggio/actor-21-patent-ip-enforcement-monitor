@@ -1,0 +1,20 @@
+{
+  "oneLineDescription": "Tracks USPTO PTAB trial proceedings (IPR/PGR/CBM/DER) and EPO opposition-family patent events, normalizing both into one schema with delta-mode change detection.",
+  "topics": [
+    "apify",
+    "apify-actor",
+    "patents",
+    "patent-monitoring",
+    "patent-litigation",
+    "ip-enforcement",
+    "ptab",
+    "inter-partes-review",
+    "post-grant-review",
+    "uspto",
+    "epo",
+    "patent-opposition",
+    "freedom-to-operate",
+    "typescript",
+    "pay-per-event"
+  ]
+}
