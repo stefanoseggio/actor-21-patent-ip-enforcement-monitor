@@ -102,6 +102,42 @@ Every request goes through a single sequential fetch path (`src/http.ts`) with e
 
 In delta mode (`onlyNew: true`), a status fingerprint per record is persisted in this actor's own named key-value store between runs (`src/state.ts`). For PTAB, the `terminationDate` field is tracked separately from the general fingerprint specifically so a null-to-set transition - the trial actually concluding - is reported as its own distinct `TERMINATED` event rather than folded into a generic `UPDATED`. A trial that is already terminated the first time it's seen is reported as a normal `SANCTION`, since there's nothing to transition from on a first sighting.
 
+## Instant Terminal Run (cURL)
+
+Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
+
+```bash
+curl -X POST "https://api.apify.com/v2/acts/fTvz8lwj3F1FrPQfM/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "maxItemsPerSource": 30,
+  "onlyNew": true
+}'
+```
+
+## Sample Extracted Dataset (JSON)
+
+One real record from this Actor's own dataset, matching `.actor/dataset_schema.json`:
+
+```json
+{
+  "source": "uspto_ptab",
+  "trialNumber": "IPR2024-00123",
+  "trialTypeCode": "IPR",
+  "trialStatusCategory": "Instituted",
+  "petitionFilingDate": "2024-01-15",
+  "institutionDecisionDate": "2024-07-10",
+  "patentNumber": "10123456",
+  "patentOwnerName": "Acme Widgets Inc.",
+  "petitionerRealPartyInInterestName": "Globex Corp",
+  "record_id": "IPR2024-00123",
+  "event_type": "SANCTION",
+  "scraped_at": "2026-09-07T00:00:00.000Z",
+  "is_new": true,
+  "jurisdiction": "US"
+}
+```
+
 ## Pricing (Pay-Per-Event)
 
 This actor bills via Apify's Pay-Per-Event (PPE) model - one event type, charged only when a dataset record is actually pushed:
