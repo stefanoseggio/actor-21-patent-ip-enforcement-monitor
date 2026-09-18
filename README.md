@@ -144,6 +144,61 @@ apify call stefano_seggio/actor-21-patent-ip-enforcement-monitor --input '{
 }'
 ```
 
+## Use this from Claude Desktop, Cursor, or Windsurf (via MCP)
+
+This Actor is also reachable through Apify's own hosted `@apify/actors-mcp-server` at `https://mcp.apify.com`, scoped to just this one Actor via a `?tools=stefano_seggio/actor-21-patent-ip-enforcement-monitor` query string - your MCP client gets tool access to this Actor alone, not the rest of the fleet. Get your own token from [Apify Console → Settings → Integrations](https://console.apify.com/settings/integrations) first.
+
+**Claude Desktop** (`claude_desktop_config.json`) - uses the `mcp-remote` stdio bridge, not a direct URL. Note: `mcp-remote` does not expand shell environment variables inside this JSON string, so paste your real token literally in place of `${APIFY_TOKEN}` below, and keep this file out of version control:
+
+```json
+{
+  "mcpServers": {
+    "delta-registry-actor-21-patent-ip-enforcement-monitor": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.apify.com/?tools=stefano_seggio/actor-21-patent-ip-enforcement-monitor",
+        "--header",
+        "Authorization: Bearer ${APIFY_TOKEN}"
+      ]
+    }
+  }
+}
+```
+
+**Cursor** (`.cursor/mcp.json` or `~/.cursor/mcp.json`) - native HTTP transport:
+
+```json
+{
+  "mcpServers": {
+    "delta-registry-actor-21-patent-ip-enforcement-monitor": {
+      "url": "https://mcp.apify.com/?tools=stefano_seggio/actor-21-patent-ip-enforcement-monitor",
+      "headers": {
+        "Authorization": "Bearer ${APIFY_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Windsurf** (`~/.codeium/windsurf/mcp_config.json`) - uses `serverUrl`, not `url`. Unlike Claude Desktop's `mcp-remote` bridge, Windsurf's `${env:...}` syntax genuinely resolves from your environment at runtime:
+
+```json
+{
+  "mcpServers": {
+    "delta-registry-actor-21-patent-ip-enforcement-monitor": {
+      "serverUrl": "https://mcp.apify.com/?tools=stefano_seggio/actor-21-patent-ip-enforcement-monitor",
+      "headers": {
+        "Authorization": "Bearer ${env:APIFY_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Want every actor in the fleet available to one MCP client instead of just this one? See [`delta-registry-website/MCP_INTEGRATION.md`](https://github.com/stefanoseggio/delta-registry-website/blob/main/MCP_INTEGRATION.md) for the full 28-actor closed-scope config.
+
 ## Input & Output Schema
 
 ### Input
@@ -202,6 +257,7 @@ One real record from this Actor's own dataset, matching [`.actor/dataset_schema.
 | `event_type` | string | `SANCTION` (first seen), `UPDATED` (status/decision changed), `TERMINATED` (PTAB only - `terminationDate` newly set), or `SNAPSHOT_NO_DIFF` (unchanged, only emitted when `onlyNew` is off). |
 | `scraped_at` | string | ISO-8601 timestamp of this extraction. |
 | `is_new` | boolean | `true` if this record was not seen in a prior run. |
+| `recipient_or_defendant_name` | string \| null | Fleet-standard envelope alias for the named party - mirrors `patentOwnerName` (`uspto_ptab`) or the equivalent EPO party where available. Used directly in the Python/Node.js examples above (`item.get('recipient_or_defendant_name')` / `item.recipient_or_defendant_name`). |
 | `jurisdiction` | string | `US` (PTAB) or `EP` (EPO). |
 
 `value_usd_normalized` and related value fields are always `null` for this actor's two sources - neither PTAB proceedings nor EPO opposition events carry a monetary amount, so this is left an honest null rather than a fabricated figure. EPO records instead populate `publicationNumber`/`eventCode`/`eventDescription`/`eventDate`/`eventCountry`. The full field list (all `uspto_ptab`-only and `epo_opposition`-only columns, plus the fleet-standard normalized envelope) is in [`.actor/dataset_schema.json`](./.actor/dataset_schema.json).
