@@ -14,7 +14,7 @@ client = ApifyClient(os.environ["APIFY_API_TOKEN"])
 # Minimal realistic input matching the Actor's real input_schema.json.
 # usptoOdpApiKey is required for the uspto_ptab source: this Actor is
 # deliberately bring-your-own-key — register your own free USPTO Open Data
-# Portal account at https://data.uspto.gov/myodp and use that key here.
+# Portal account at https://data.uspto.gov/apikey and use that key here.
 run_input = {
     "sources": ["uspto_ptab"],
     "usptoOdpApiKey": os.environ["USPTO_ODP_API_KEY"],
