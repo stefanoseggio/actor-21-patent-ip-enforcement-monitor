@@ -1,6 +1,6 @@
 {
     "name": "actor-21-patent-ip-enforcement-monitor",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "type": "module",
     "description": "Global Patent & IP Enforcement Actions Monitor: real, adversarial USPTO Patent Trial and Appeal Board (PTAB) proceedings (Inter Partes Review, Post-Grant Review, Covered Business Method, Derivation -- not ordinary patent grants) via the USPTO Open Data Portal, plus an optional EPO Open Patent Services opposition-watch module for a caller-supplied EP publication watchlist. Both require an operator-supplied API credential (BYOK) obtained through each office's own free registration -- no CAPTCHA-solving, fingerprint spoofing, or WAF/OAuth-gate bypass. Legacy PatentsView PatentSearch API and WIPO PATENTSCOPE were live-verified and found unavailable/non-free for v1 -- see src/http.ts.",
     "engines": {
