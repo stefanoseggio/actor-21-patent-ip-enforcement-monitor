@@ -9,6 +9,14 @@ import { normalizeEpoRecord, normalizePtabRecord } from './umsNormalizer.js';
 
 const RESULT_EVENT_NAME = 'result';
 
+/** Thrown for a top-level, run-fatal configuration/validation problem (e.g. a missing BYOK credential for a requested source) - distinguished by TYPE from a genuine per-fetch/per-record error during normal operation, so the catch block in run() can fail the whole run for this case while still tolerating the other. */
+class FatalConfigError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'FatalConfigError';
+    }
+}
+
 await Actor.init();
 await run();
 await Actor.exit();
@@ -40,7 +48,7 @@ async function run(): Promise<void> {
     if (!parsed.success) {
         const message = `Invalid actor input: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`;
         log.error(message);
-        await Actor.pushData({ error: message, scraped_at: new Date().toISOString() });
+        await Actor.fail(message);
         return;
     }
     const input = parsed.data;
@@ -51,7 +59,7 @@ async function run(): Promise<void> {
 
     try {
         if (input.sources.includes('uspto_ptab')) {
-            if (!input.usptoOdpApiKey) throw new Error('usptoOdpApiKey is required for source uspto_ptab.');
+            if (!input.usptoOdpApiKey) throw new FatalConfigError('usptoOdpApiKey is required for source uspto_ptab.');
 
             const filingDateFrom = dateRangeToFrom(input.dateRange);
             const ptabRecords = await fetchPtabProceedings({
@@ -95,7 +103,7 @@ async function run(): Promise<void> {
 
         if (!chargeLimitReached && input.sources.includes('epo_opposition')) {
             if (!input.epoOpsConsumerKey || !input.epoOpsConsumerSecret) {
-                throw new Error('epoOpsConsumerKey and epoOpsConsumerSecret are both required for source epo_opposition.');
+                throw new FatalConfigError('epoOpsConsumerKey and epoOpsConsumerSecret are both required for source epo_opposition.');
             }
 
             const epoRecords = await fetchEpoOppositionEvents({
@@ -130,6 +138,20 @@ async function run(): Promise<void> {
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         log.error(`Extraction failed: ${message}`);
+        if (error instanceof FatalConfigError) {
+            // Top-level configuration/validation problem (e.g. a missing BYOK
+            // credential for a requested source) - the run genuinely did
+            // nothing useful, so it must end FAILED and surface the real
+            // message via the API, not just as a dataset row on a
+            // SUCCEEDED run that a status-only caller would never see.
+            await Actor.fail(message);
+            return;
+        }
+        // Genuine per-fetch/per-record error during normal operation (e.g. a
+        // transient upstream failure). Failing the whole run over this would
+        // discard any real records already pushed from other sources, so
+        // this keeps the existing behavior: record the error and exit
+        // normally.
         await Actor.pushData({ error: message, scraped_at: new Date().toISOString() });
         return;
     }
