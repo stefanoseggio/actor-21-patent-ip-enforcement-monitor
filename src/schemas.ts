@@ -54,8 +54,33 @@ export const ActorInputSchema = z
         epoOpsConsumerKey: z.string().min(1).optional(),
         epoOpsConsumerSecret: z.string().min(1).optional(),
 
-        /** EP publication numbers in OPS "epodoc" format (e.g. "EP3000000"), required for the epo_opposition source -- OPS has no bulk "recent oppositions" search, only per-number legal-status lookup. */
-        epWatchlist: z.array(z.string().min(1)).default([]),
+        /**
+         * EP publication numbers in OPS "epodoc" format (e.g. "EP3000000"),
+         * required for the epo_opposition source -- OPS has no bulk "recent
+         * oppositions" search, only per-number legal-status lookup, so this
+         * actor issues one sequential HTTP call (with its own retry/backoff)
+         * per watchlist entry -- see fetchEpoOppositionEvents() in
+         * src/sources/epoOpposition.ts.
+         *
+         * Capped at 100 (timeout-budget fix, 2026-09-19): maxItemsPerSource
+         * only caps how many MATCHED opposition events are kept, not how
+         * many watchlist entries get walked -- when few/none match, every
+         * entry is still fetched. Per src/http.ts's real DEFAULT_RETRY
+         * (maxRetries=4, baseDelayMs=1000, minRetryAfter429Ms=5000), a single
+         * call that gets rate-limited (429) on every attempt sleeps
+         * max(5000,1000*2^0) + max(5000,1000*2^1) + max(5000,1000*2^2) +
+         * max(5000,1000*2^3) = 5000+5000+5000+8000 = 23s before it can
+         * finally succeed on its 5th (last) attempt. With this actor's real,
+         * live-verified defaultRunOptions.timeoutSecs=3600, an uncapped
+         * watchlist of ~157 entries (157*23s=3611s) already exceeds the
+         * whole run's timeout budget from backoff sleeps alone, before
+         * counting any real network latency or the source's own one-time
+         * OAuth token fetch (which shares the same retry budget). At the
+         * cap of 100: 100*23s=2300s plus the ~23s worst-case token fetch =
+         * 2323s, ~64.5% of the 3600s budget -- comfortable, genuine margin
+         * for real request latency on top of worst-case backoff.
+         */
+        epWatchlist: z.array(z.string().min(1)).max(100, 'epWatchlist supports at most 100 entries per run -- see src/sources/epoOpposition.ts for the timeout-budget arithmetic (each entry is one sequential, independently-retried HTTP call).').default([]),
 
         /** Filters PTAB proceedings by trialMetaData.trialTypeCode. Empty/omitted = all four trial types. */
         trialTypeCodes: z.array(PtabTrialTypeCodeSchema).default([]),

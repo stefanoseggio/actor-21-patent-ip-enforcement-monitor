@@ -41,8 +41,9 @@
         "epWatchlist": {
             "title": "EP publication numbers to watch (OPS epodoc format)",
             "type": "array",
-            "description": "Required when sources includes epo_opposition -- EPO OPS has no bulk 'recent oppositions' search, only a per-publication-number legal-status lookup, so this actor is watchlist-driven for that source. Example: \"EP3000000\".",
+            "description": "Required when sources includes epo_opposition -- EPO OPS has no bulk 'recent oppositions' search, only a per-publication-number legal-status lookup, so this actor issues one sequential, independently-retried HTTP call per entry. Capped at 100: maxItemsPerSource only limits matched opposition events, not entries walked, so an uncapped watchlist can exceed the run's timeout budget on backoff sleeps alone when little/nothing matches -- see src/sources/epoOpposition.ts for the arithmetic. Example: \"EP3000000\".",
             "editor": "stringList",
+            "maxItems": 100,
             "default": []
         },
         "trialTypeCodes": {
