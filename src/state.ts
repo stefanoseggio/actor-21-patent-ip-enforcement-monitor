@@ -70,15 +70,33 @@ export async function saveSourceState(
 ): Promise<DeltaState> {
     const previousIds = state.seenIds[source] ?? [];
     const mergedIds = [...idsSeenThisRun, ...previousIds.filter((id) => !idsSeenThisRun.includes(id))];
+    const cappedIds = mergedIds.slice(0, MAX_SEEN_IDS_PER_SOURCE);
+
+    // statusFingerprints/terminationDates must be pruned to the same
+    // record_id set retained in seenIds after capping - otherwise they grow
+    // unboundedly across scheduled runs even after a record_id is evicted
+    // from seenIds.
+    const mergedFingerprints = { ...state.statusFingerprints[source], ...fingerprintsThisRun };
+    const prunedFingerprints: Record<string, string> = {};
+    for (const id of cappedIds) {
+        if (mergedFingerprints[id] !== undefined) prunedFingerprints[id] = mergedFingerprints[id];
+    }
+
+    const mergedTerminationDates = { ...state.terminationDates[source], ...terminationDatesThisRun };
+    const prunedTerminationDates: Record<string, string> = {};
+    for (const id of cappedIds) {
+        if (mergedTerminationDates[id] !== undefined) prunedTerminationDates[id] = mergedTerminationDates[id];
+    }
+
     const next: DeltaState = {
-        seenIds: { ...state.seenIds, [source]: mergedIds.slice(0, MAX_SEEN_IDS_PER_SOURCE) },
+        seenIds: { ...state.seenIds, [source]: cappedIds },
         statusFingerprints: {
             ...state.statusFingerprints,
-            [source]: { ...state.statusFingerprints[source], ...fingerprintsThisRun },
+            [source]: prunedFingerprints,
         },
         terminationDates: {
             ...state.terminationDates,
-            [source]: { ...state.terminationDates[source], ...terminationDatesThisRun },
+            [source]: prunedTerminationDates,
         },
         lastRunAt: { ...state.lastRunAt, [source]: runAt },
     };

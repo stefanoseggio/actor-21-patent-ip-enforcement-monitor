@@ -125,6 +125,42 @@ describe('state persistence (loadState/saveSourceState)', () => {
         expect(loaded.terminationDates.uspto_ptab['IPR2026-00001']).toBe('');
     });
 
+    it('prunes statusFingerprints/terminationDates to the same key set retained in seenIds after capping at MAX_SEEN_IDS_PER_SOURCE (no unbounded growth)', async () => {
+        // Seed 5000 previously-seen ids (the real cap) each with a
+        // fingerprint/terminationDate entry, so this run's one new id pushes
+        // the merged list to 5001 and the cap evicts exactly one id
+        // (the last one in merge order, 'P5000').
+        const previousIds = Array.from({ length: 5000 }, (_, i) => `P${String(i + 1).padStart(4, '0')}`);
+        const seededFingerprints: Record<string, string> = {};
+        const seededTerminationDates: Record<string, string> = {};
+        for (const id of previousIds) {
+            seededFingerprints[id] = `fp-${id}`;
+            seededTerminationDates[id] = '';
+        }
+        const seeded: DeltaState = {
+            seenIds: { uspto_ptab: previousIds },
+            statusFingerprints: { uspto_ptab: seededFingerprints },
+            terminationDates: { uspto_ptab: seededTerminationDates },
+            lastRunAt: {},
+        };
+
+        const next = await saveSourceState(seeded, 'uspto_ptab', ['NEW-1'], { 'NEW-1': 'fp-new' }, '2026-09-19T00:00:00.000Z', { 'NEW-1': '' });
+
+        expect(next.seenIds.uspto_ptab).toHaveLength(5000);
+        expect(next.seenIds.uspto_ptab).not.toContain('P5000');
+        expect(next.seenIds.uspto_ptab).toContain('P4999');
+        expect(next.seenIds.uspto_ptab).toContain('NEW-1');
+
+        // The evicted id's fingerprint/terminationDate entries must be
+        // pruned along with it, not merged in and left to grow unboundedly
+        // across scheduled runs.
+        expect(next.statusFingerprints.uspto_ptab).not.toHaveProperty('P5000');
+        expect(next.terminationDates.uspto_ptab).not.toHaveProperty('P5000');
+        expect(Object.keys(next.statusFingerprints.uspto_ptab)).toHaveLength(5000);
+        expect(Object.keys(next.terminationDates.uspto_ptab)).toHaveLength(5000);
+        expect(next.statusFingerprints.uspto_ptab['NEW-1']).toBe('fp-new');
+    });
+
     it('backfills a missing terminationDates map from a legacy (pre-2026-09-08) persisted shape without throwing', async () => {
         const store = await Actor.openKeyValueStore('actor-21-patent-ip-enforcement-monitor-delta-state');
         await store.setValue('state', {
