@@ -131,6 +131,14 @@
  * captured beyond the run that used it.
  */
 
+import { Impit, type RequestInit as ImpitRequestInit } from 'impit';
+
+// One Impit instance per actor run: it holds the connection pool and TLS
+// session cache, and gives every request a real, internally-consistent
+// Chrome TLS/HTTP2 fingerprint instead of Node's native (and distinctively
+// bot-shaped) one - see AGENTS.md for why this was added.
+const impit = new Impit({ browser: 'chrome' });
+
 async function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
@@ -172,11 +180,15 @@ function parseRetryAfterMs(headerValue: string | null): number | null {
 }
 
 /**
- * Plain fetch() with exponential backoff, no proxy (per this fleet's
- * standing convention -- see uk-hse-enforcement-monitor/src/http.ts). Every
- * source in this actor requires a real, registered API credential anyway,
- * so there is nothing a proxy or fingerprint change would legitimately
- * accomplish here.
+ * Retries with exponential backoff via the module-level `impit` instance
+ * (see above) -- still no IP/proxy rotation (per this fleet's standing
+ * convention -- see uk-hse-enforcement-monitor/src/http.ts): every source in
+ * this actor requires a real, registered API credential anyway, so proxying
+ * would accomplish nothing here. The TLS/HTTP2 fingerprint swap to `impit`
+ * was applied anyway for fleet-wide consistency (see AGENTS.md); unlike a
+ * scraped site behind a WAF, neither api.uspto.gov nor ops.epo.org is known
+ * to gate on the TLS handshake -- access here is controlled by the
+ * credential itself, not by how browser-like the client looks.
  *
  * This actor issues requests sequentially, one in flight at a time, by
  * construction (no Promise.all/fan-out over pages) -- matching ODP's
@@ -190,13 +202,18 @@ function parseRetryAfterMs(headerValue: string | null): number | null {
  * server sends one, rather than relying on the generic outer catch to
  * eventually retry it with no status-specific handling at all.
  */
-async function doFetchWithRetry(url: string, init: RequestInit, options: RetryOptions, parseResponse: (r: Response) => Promise<unknown>): Promise<unknown> {
+async function doFetchWithRetry(
+    url: string,
+    init: ImpitRequestInit,
+    options: RetryOptions,
+    parseResponse: (r: { json(): Promise<unknown>; text(): Promise<string> }) => Promise<unknown>,
+): Promise<unknown> {
     const { maxRetries, minRetryAfter429Ms, baseDelayMs } = { ...DEFAULT_RETRY, ...options };
     let lastError: Error = new Error('unreachable');
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            const response = await fetch(url, init);
+            const response = await impit.fetch(url, init);
 
             if (response.status === 429) {
                 if (attempt < maxRetries) {
@@ -242,11 +259,11 @@ async function doFetchWithRetry(url: string, init: RequestInit, options: RetryOp
     throw lastError;
 }
 
-export async function fetchJsonWithRetry<T>(url: string, init: RequestInit, options: RetryOptions = {}): Promise<T> {
+export async function fetchJsonWithRetry<T>(url: string, init: ImpitRequestInit, options: RetryOptions = {}): Promise<T> {
     return (await doFetchWithRetry(url, init, options, async (r) => r.json())) as T;
 }
 
 /** Same retry contract as fetchJsonWithRetry but returns raw text -- used for the OPS legal-status XML response and the OPS OAuth token response (form-encoded body in, JSON out, but the underlying transport shape differs enough to keep this separate). */
-export async function fetchTextWithRetry(url: string, init: RequestInit, options: RetryOptions = {}): Promise<string> {
+export async function fetchTextWithRetry(url: string, init: ImpitRequestInit, options: RetryOptions = {}): Promise<string> {
     return (await doFetchWithRetry(url, init, options, async (r) => r.text())) as string;
 }
