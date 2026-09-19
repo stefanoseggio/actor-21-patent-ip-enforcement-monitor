@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.2.0](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/compare/actor-21-patent-ip-enforcement-monitor-v1.1.0...actor-21-patent-ip-enforcement-monitor-v1.2.0) (2026-09-19)
+
+
+### Features
+
+* standardize on multi-stage Dockerfile builder pattern ([#11](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/issues/11)) ([c201298](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/commit/c201298e0ddfb39c6204ab1dcc9b55f051f17c08))
+* TERMINATED event, delta-logic tests, calibrated 503 retry (1.1.0) ([131e2ff](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/commit/131e2ff18aecd197169edbaf8640e77f7f183845))
+
+
+### Bug Fixes
+
+* cap epWatchlist at 100 entries to fit epo_opposition inside the run timeout ([#12](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/issues/12)) ([2a35279](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/commit/2a3527913a8007fa893e933dbf2591ee97bd9f0b))
+* **ci:** pass RELEASE_PLEASE_TOKEN so release PRs skip the bot-approval gate ([4134811](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/commit/41348115032c5d5bcfd7b44fb03f0d838dc8813b))
+* close 3 audit-flagged delta-tracking gaps in PTAB/EPO monitoring ([#14](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/issues/14)) ([bf63792](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/commit/bf63792d5c460196befe1231daaada27764ab003))
+* fail the run on fatal BYOK/config errors instead of exiting SUCCEEDED ([#13](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/issues/13)) ([fc6357a](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/commit/fc6357a29e5bb0ca38e5d3568e68dfd6c009618b))
+* restore dist/ tracking (regression from repo-standardization pass) ([#9](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/issues/9)) ([1322232](https://github.com/stefanoseggio/actor-21-patent-ip-enforcement-monitor/commit/1322232b9c36eb3f5628309832ca236e64cbc6ab))
+
 ## 1.1.0 - 2026-09-08
 
 This actor was already the closest of the 5 non-mandate actors to full V2 fidelity - a correctly-NAMED key-value store and real fingerprint-based classification (`first_seen`/`updated`/`unchanged`, mapped to `SANCTION`/`UPDATED`/`SNAPSHOT_NO_DIFF`) were both already in place before this release. This is a narrower, targeted release closing the three specific gaps found: no terminal event, zero test coverage on the delta logic itself, and 503 folded into a generic non-calibrated retry path.
