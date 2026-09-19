@@ -44,7 +44,14 @@ function buildRequestBody(params: FetchPtabProceedingsParams, offset: number, li
         filters,
         rangeFilters,
         pagination: { offset, limit },
-        sort: [{ field: 'trialMetaData.petitionFilingDate', order: 'Desc' }],
+        // trialNumber is a secondary/tie-breaking sort field: petitionFilingDate
+        // is a calendar date, so ties are common, and sorting by a single
+        // non-unique field with offset-based pagination risks a trial being
+        // skipped or double-pushed at a page boundary when ties straddle it.
+        sort: [
+            { field: 'trialMetaData.petitionFilingDate', order: 'Desc' },
+            { field: 'trialNumber', order: 'Asc' },
+        ],
     };
 }
 
@@ -118,5 +125,17 @@ export async function fetchPtabProceedings(params: FetchPtabProceedingsParams): 
         offset += proceedings.length;
     }
 
-    return records;
+    // De-duplicate by trialNumber (record_id): even with the trialNumber
+    // secondary sort above, a record could still be re-fetched across two
+    // page requests (e.g. a tie-breaking value shifting between requests,
+    // or a retry re-issuing a page) and must not be pushed twice.
+    const seen = new Set<string>();
+    const deduped: PtabRawRecord[] = [];
+    for (const record of records) {
+        if (seen.has(record.trialNumber)) continue;
+        seen.add(record.trialNumber);
+        deduped.push(record);
+    }
+
+    return deduped;
 }

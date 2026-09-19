@@ -22,11 +22,17 @@ await run();
 await Actor.exit();
 
 function ptabFingerprint(raw: PtabRawRecord): string {
-    return `${raw.trialStatusCategory ?? ''}|${raw.latestDecisionDate ?? ''}|${raw.terminationDate ?? ''}`;
+    // fileDownloadURI is included because it's the one genuinely verified
+    // per-record document link this source carries (emitted as
+    // source_document_url via umsNormalizer.ts) - a trial whose
+    // status/decision/termination dates are unchanged but whose decision
+    // document only became linked in the interim is a real UMS-surfaced
+    // change and must not classify as SNAPSHOT_NO_DIFF.
+    return `${raw.trialStatusCategory ?? ''}|${raw.latestDecisionDate ?? ''}|${raw.terminationDate ?? ''}|${raw.fileDownloadURI ?? ''}`;
 }
 
 function epoFingerprint(raw: EpoRawRecord): string {
-    return `${raw.eventCode ?? ''}|${raw.eventDate ?? ''}`;
+    return `${raw.eventCode ?? ''}|${raw.eventDate ?? ''}|${raw.eventDescription ?? ''}|${raw.eventCountry ?? ''}`;
 }
 
 /** Resolves (event_type, is_new) from delta state, per this actor's documented UMS vocabulary usage: SANCTION on first sight, UPDATED when a previously-seen record's status fingerprint changed, SNAPSHOT_NO_DIFF when re-emitting an unchanged record (only reachable when onlyNew=false, since onlyNew mode skips unchanged records entirely before this is ever called for them). */
