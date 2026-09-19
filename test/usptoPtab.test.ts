@@ -1,5 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// impit's Impit.fetch() is a native binding, not built on the global `fetch` -
+// vi.spyOn(globalThis, 'fetch')/vi.stubGlobal('fetch', ...) never intercepts
+// it. Mock the `impit` module itself instead, so `new Impit()` in
+// src/http.ts returns an object whose `.fetch` is this mock. vi.hoisted() is
+// required because vi.mock() factories run before the top-level `const`
+// below would otherwise be initialized.
+const { fetchMock } = vi.hoisted(() => ({
+    fetchMock: vi.fn<(url: string, init: RequestInit) => Promise<Response>>(),
+}));
+vi.mock('impit', () => ({
+    // Must be a real `function`, not an arrow function - `new Impit(...)`
+    // requires a constructible mock implementation.
+    Impit: vi.fn().mockImplementation(function ImpitMock() {
+        return { fetch: fetchMock };
+    }),
+}));
+
 import { fetchPtabProceedings } from '../src/sources/usptoPtab.js';
 import type { PtabSearchResponse, PtabTrialProceeding } from '../src/types.js';
 
@@ -33,12 +50,12 @@ function makeProceeding(trialNumber: string, petitionFilingDate: string): PtabTr
 
 describe('fetchPtabProceedings - pagination sort and de-duplication', () => {
     afterEach(() => {
-        vi.restoreAllMocks();
+        fetchMock.mockReset();
     });
 
     it('sends trialNumber as a secondary/tie-breaking sort field alongside petitionFilingDate', async () => {
         const page: PtabSearchResponse = { patentTrialProceedingDataBag: [makeProceeding('IPR2026-00001', '2026-01-01')] };
-        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(page));
+        fetchMock.mockResolvedValue(jsonResponse(page));
 
         await fetchPtabProceedings({ apiKey: 'k', trialTypeCodes: [], maxItems: 10 });
 
@@ -64,7 +81,7 @@ describe('fetchPtabProceedings - pagination sort and de-duplication', () => {
 
         const page1: PtabSearchResponse = { patentTrialProceedingDataBag: page1Items };
         const page2: PtabSearchResponse = { patentTrialProceedingDataBag: page2Items };
-        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse(page1)).mockResolvedValueOnce(jsonResponse(page2));
+        fetchMock.mockResolvedValueOnce(jsonResponse(page1)).mockResolvedValueOnce(jsonResponse(page2));
 
         const records = await fetchPtabProceedings({ apiKey: 'k', trialTypeCodes: [], maxItems: 105 });
 

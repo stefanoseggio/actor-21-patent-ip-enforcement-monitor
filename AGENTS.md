@@ -2,6 +2,52 @@
 
 Global Patent & IP Enforcement Actions Monitor. Two sources normalized to a shared 18-field UMS: **USPTO PTAB** (Patent Trial and Appeal Board Trials API, `api.uspto.gov`, real adversarial patent-validity disputes - IPR/PGR/CBM/Derivation - BYOK via a free-but-MFA-gated USPTO.gov account) and, optionally, **EPO Open Patent Services** (`ops.epo.org`, legal-status events for a watchlist of EP publications, BYOK OAuth2 client credentials). PatentsView (confirmed down/ENOTFOUND, and wouldn't fit this brief even if it returned - grants aren't enforcement events) and WIPO PATENTSCOPE (every structured data product is a paid CHF subscription) were live-researched and excluded, not silently omitted - see `src/http.ts`'s header comment for the full verification record.
 
+## HTTP transport: `impit`, not the native `fetch`
+
+`src/http.ts`'s `doFetchWithRetry` calls a module-level `Impit` instance
+(`new Impit({ browser: 'chrome' })`, from the `impit` package) instead of
+the global `fetch` - added 2026-09-19 as a fleet-wide TLS-fingerprint-
+hardening pilot (proactive hardening, not a bug fix - Node's `fetch` isn't
+deprecated). Things to know if you touch this file again:
+
+- **Unlike the scraped-HTML actors this pilot started on, both of this
+  actor's sources (USPTO ODP, EPO OPS) are BYOK credentialed APIs, not sites
+  behind a TLS/JA3-inspecting WAF** - `curl -s https://api.uspto.gov/robots.txt`
+  returns a plain API-gateway 401 ("Missing Authentication Token"), not a
+  bot challenge (see `src/http.ts`'s header comment). The fingerprint swap
+  was still applied here for fleet-wide consistency, but it is not solving
+  a known problem for this actor the way it is for e.g.
+  `florida-tenders-monitor` or `australia-grantconnect-monitor`. A manual,
+  unauthenticated smoke request to both `api.uspto.gov` and `ops.epo.org`
+  after the swap got back a normal application-level 401 from each (not a
+  network/TLS-level failure), confirming the handshake itself is unaffected.
+- **`impit`'s own `RequestInit` type is narrower than the DOM's** - its
+  `method` field is a fixed `HttpMethod` union, not `string`.
+  `doFetchWithRetry`/`fetchJsonWithRetry`/`fetchTextWithRetry` are typed
+  against `RequestInit as ImpitRequestInit` from `'impit'` for this reason;
+  don't revert that import to the global DOM type without re-checking `tsc`
+  passes. The `parseResponse` callback parameter was also loosened from the
+  DOM `Response` to a minimal `{ json(): Promise<unknown>; text():
+  Promise<string> }` structural type, since `ImpitResponse` doesn't
+  structurally satisfy `Response` (e.g. no `blob()`/`formData()`).
+- **`Impit.fetch()` is a native binding, not built on the global `fetch`.**
+  `vi.spyOn(globalThis, 'fetch')` - the pattern both `test/http.test.ts` and
+  `test/usptoPtab.test.ts` used before this change - will NOT intercept it;
+  it silently does nothing and the real network call goes out. Both files
+  now mock the `impit` module itself instead (`vi.mock('impit', ...)`, with
+  `vi.hoisted()` for the mock function reference, and a real `function` -
+  not an arrow function - as the mock's `Impit` implementation, since `new
+  Impit(...)` requires a constructible mock). Keep that pattern if these
+  files' tests are extended.
+- **No `test:live` suite exists for this actor**, unlike the two sibling
+  actors this pilot started on - both sources need an operator-supplied
+  BYOK credential this codebase never holds (see "Known footguns" below), so
+  there is no way to exercise the real endpoints end-to-end from CI or this
+  repo alone. Verification for this change was therefore: the full unit
+  suite green post-swap with no timing regression (proving the `impit` mock
+  actually intercepts rather than a live-network leak), plus the manual
+  unauthenticated smoke request described above.
+
 ## V2 status (this actor was already close - 2026-09-08 pass was narrow)
 
 Unlike the other 4 actors found outside the original 9-actor V2 migration mandate, this one already had, BEFORE this pass: a correctly-NAMED key-value store (no run-scoped `Actor.getValue()`/`setValue()` bug), and real fingerprint-based classification (`first_seen`/`updated`/`unchanged` in `src/state.ts`'s `classifyRecord()`, mapped to `SANCTION`/`UPDATED`/`SNAPSHOT_NO_DIFF` in `main.ts`'s `classify()`). This pass closed three specific, narrower gaps instead of a full rewrite:
