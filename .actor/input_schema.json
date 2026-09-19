@@ -20,7 +20,7 @@
         "usptoOdpApiKey": {
             "title": "USPTO Open Data Portal API key",
             "type": "string",
-            "description": "Required when sources includes uspto_ptab. Bring-your-own-key: obtain a free key from a USPTO.gov account (MFA required) at https://data.uspto.gov/myodp -- this actor never attempts to create that account on your behalf. Never logged or persisted beyond this run.",
+            "description": "Required when sources includes uspto_ptab. Bring-your-own-key: obtain a free key from a USPTO.gov account (MFA required) at https://data.uspto.gov/apikey -- this actor never attempts to create that account on your behalf. Never logged or persisted beyond this run.",
             "editor": "textfield",
             "isSecret": true
         },

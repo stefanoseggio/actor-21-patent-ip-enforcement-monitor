@@ -43,14 +43,14 @@ Unlike some sibling Delta Registry Actors, this Actor's delta state is **not** a
 
 Per Delta Registry's fleet-wide pricing page: *"Optional EPO opposition-data key unlocks EU coverage — USPTO PTAB coverage needs no key."* To be precise about this Actor's actual, live-verified requirements (per its own `.actor/input_schema.json` and `src/main.ts`), that summary understates the USPTO side: **both sources are independently BYOK, and at least one is required to get any real results at all.**
 
-- `usptoOdpApiKey` is **required** whenever `sources` includes `uspto_ptab` (the default source) - a free USPTO Open Data Portal key from a USPTO.gov account (MFA required), obtained at [data.uspto.gov/myodp](https://data.uspto.gov/myodp). Calling this Actor with `uspto_ptab` selected and no key throws immediately - it is not optional for that source.
+- `usptoOdpApiKey` is **required** whenever `sources` includes `uspto_ptab` (the default source) - a free USPTO Open Data Portal key from a USPTO.gov account (MFA required) with a linked, identity-verified ID.me account, obtained at [data.uspto.gov/apikey](https://data.uspto.gov/apikey). USPTO's own flow is multi-step: register a USPTO.gov account, enroll MFA, then create and link an ID.me account (self-service or a live video-call agent) before a key can be requested. Calling this Actor with `uspto_ptab` selected and no key throws immediately - it is not optional for that source.
 - `epoOpsConsumerKey` + `epoOpsConsumerSecret` are **required** whenever `sources` includes `epo_opposition` - a free Consumer Key/Secret pair from a `developers.epo.org` account + registered App (OAuth2 client-credentials flow), plus an `epWatchlist` of EP publication numbers (EPO OPS has no bulk "recent oppositions" endpoint).
 
 What "optional" correctly describes: which of the two sources you choose to enable, and whether you add the EPO watchlist on top of PTAB coverage for EU reach. What it does not mean: that USPTO PTAB tracking works with zero key. In every case, the key belongs to you, is billed (if at all - both tiers used here are free registrations) directly by USPTO/EPO to your own account, and is never logged, pooled, or persisted by this Actor beyond the run that used it.
 
 ## Quickstart
 
-The Actor's real slug is `stefano_seggio/actor-21-patent-ip-enforcement-monitor` (Actor ID `fTvz8lwj3F1FrPQfM`, works interchangeably in all three clients below). Requires a free USPTO Open Data Portal API key (`https://data.uspto.gov/myodp`) for `uspto_ptab`, and/or a free EPO OPS Consumer Key/Secret (`developers.epo.org`) for `epo_opposition` - see Input below. Both are bring-your-own-key; this actor never creates those accounts on your behalf.
+The Actor's real slug is `stefano_seggio/actor-21-patent-ip-enforcement-monitor` (Actor ID `fTvz8lwj3F1FrPQfM`, works interchangeably in all three clients below). Requires a free USPTO Open Data Portal API key (`https://data.uspto.gov/apikey`) for `uspto_ptab`, and/or a free EPO OPS Consumer Key/Secret (`developers.epo.org`) for `epo_opposition` - see Input below. Both are bring-your-own-key; this actor never creates those accounts on your behalf.
 
 ### cURL (instant, synchronous)
 
@@ -206,7 +206,7 @@ Want every actor in the fleet available to one MCP client instead of just this o
 | Field | Type | Description |
 |---|---|---|
 | `sources` | array (select) | `uspto_ptab` (USPTO PTAB Trials, IPR/PGR/CBM/DER) and/or `epo_opposition` (EPO OPS opposition-family watch, watchlist-driven). Default `["uspto_ptab"]`. |
-| `usptoOdpApiKey` | string, secret | **Required when `sources` includes `uspto_ptab`.** BYOK - a free API key from a USPTO.gov account (MFA required), obtained at `https://data.uspto.gov/myodp`. Never logged or persisted beyond the run. |
+| `usptoOdpApiKey` | string, secret | **Required when `sources` includes `uspto_ptab`.** BYOK - a free API key from a USPTO.gov account (MFA required), obtained at `https://data.uspto.gov/apikey`. Never logged or persisted beyond the run. |
 | `epoOpsConsumerKey` | string, secret | **Required when `sources` includes `epo_opposition`.** BYOK - Consumer Key from a free `developers.epo.org` account + registered App (OAuth2 client-credentials flow). |
 | `epoOpsConsumerSecret` | string, secret | Paired with `epoOpsConsumerKey`. Never logged or persisted beyond the run. |
 | `epWatchlist` | array of strings | **Required when `sources` includes `epo_opposition`.** EP publication numbers in OPS "epodoc" format (e.g. `"EP3000000"`). EPO OPS has no bulk "recent oppositions" endpoint, only a per-publication legal-status lookup, so this source is watchlist-driven. |

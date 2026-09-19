@@ -13,7 +13,7 @@ apify login              # once per machine, needed only for `apify run`
 
 Both sources are BYOK, and at least one is required to exercise real logic locally:
 
-- `usptoOdpApiKey` — required for the `uspto_ptab` source. Free key from a USPTO.gov account (MFA required), obtained at [data.uspto.gov/myodp](https://data.uspto.gov/myodp).
+- `usptoOdpApiKey` — required for the `uspto_ptab` source. Free key from a USPTO.gov account (MFA required), obtained at [data.uspto.gov/apikey](https://data.uspto.gov/apikey).
 - `epoOpsConsumerKey` + `epoOpsConsumerSecret` — required for the `epo_opposition` source. Free Consumer Key/Secret pair from a `developers.epo.org` account + registered App (OAuth2 client-credentials flow), plus an `epWatchlist` of EP publication numbers.
 
 Set these as local environment variables or in your local Actor input — never commit a real key to the repo.
